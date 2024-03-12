@@ -85,8 +85,8 @@ RAYLIB_CONFIG_FLAGS  ?= NONE
 
 # Include raylib modules on compilation
 # NOTE: Some programs like tools could not require those modules
-RAYLIB_MODULE_AUDIO  ?= TRUE
-RAYLIB_MODULE_MODELS ?= TRUE
+RAYLIB_MODULE_AUDIO  ?= FALSE
+RAYLIB_MODULE_MODELS ?= FALSE
 RAYLIB_MODULE_RAYGUI ?= FALSE
 
 # NOTE: Additional libraries have been moved to their own repos:
@@ -94,7 +94,7 @@ RAYLIB_MODULE_RAYGUI ?= FALSE
 RAYLIB_MODULE_RAYGUI_PATH ?= $(RAYLIB_SRC_PATH)/../../raygui/src
 
 # Use external GLFW library instead of rglfw module
-USE_EXTERNAL_GLFW     ?= FALSE
+USE_EXTERNAL_GLFW     ?= TRUE
 
 # PLATFORM_DESKTOP_SDL: It requires SDL library to be provided externally
 # WARNING: Library is not included in raylib, it MUST be configured by users
@@ -215,6 +215,7 @@ ifeq ($(PLATFORM),PLATFORM_ANDROID)
 
 endif
 
+GRAPHICS ?= GRAPHICS_API_OPENGL_33
 # Define raylib graphics api depending on selected platform
 ifeq ($(PLATFORM),PLATFORM_DESKTOP)
     # By default use OpenGL 3.3 on desktop platforms
@@ -247,6 +248,13 @@ endif
 CC = gcc
 AR = ar
 
+ifeq ($(PLATFORM),PLATFORM_WII)
+    ifeq ($(strip $(DEVKITPPC)),)
+        $(error "Please set DEVKITPPC in your environment. export DEVKITPPC=<path to>devkitPPC")
+    endif
+
+    include $(DEVKITPPC)/wii_rules
+endif
 ifeq ($(PLATFORM),PLATFORM_DESKTOP)
     ifeq ($(PLATFORM_OS),OSX)
         # OSX default compiler
