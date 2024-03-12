@@ -52,13 +52,7 @@
 // Types and Structures Definition
 //----------------------------------------------------------------------------------
 typedef struct {
-    // TODO: Define the platform specific variables required
-
-    // Display data
-    EGLDisplay device;                  // Native display device (physical screen connection)
-    EGLSurface surface;                 // Surface to draw on, framebuffers (connected to context)
-    EGLContext context;                 // Graphic context, mode in which drawing can be done
-    EGLConfig config;                   // Graphic config
+    int a;
 } PlatformData;
 
 //----------------------------------------------------------------------------------
@@ -325,7 +319,7 @@ void DisableCursor(void)
 // Swap back buffer with front buffer (screen drawing)
 void SwapScreenBuffer(void)
 {
-    eglSwapBuffers(platform.device, platform.surface);
+    // TODO
 }
 
 //----------------------------------------------------------------------------------
@@ -440,86 +434,14 @@ int InitPlatform(void)
     CORE.Window.fullscreen = true;
     CORE.Window.flags |= FLAG_FULLSCREEN_MODE;
 
-    EGLint samples = 0;
-    EGLint sampleBuffer = 0;
     if (CORE.Window.flags & FLAG_MSAA_4X_HINT)
     {
-        samples = 4;
-        sampleBuffer = 1;
         TRACELOG(LOG_INFO, "DISPLAY: Trying to enable MSAA x4");
     }
 
-    const EGLint framebufferAttribs[] =
-    {
-        EGL_RENDERABLE_TYPE, (rlGetVersion() == RL_OPENGL_ES_30)? EGL_OPENGL_ES3_BIT : EGL_OPENGL_ES2_BIT,      // Type of context support
-        EGL_RED_SIZE, 8,            // RED color bit depth (alternative: 5)
-        EGL_GREEN_SIZE, 8,          // GREEN color bit depth (alternative: 6)
-        EGL_BLUE_SIZE, 8,           // BLUE color bit depth (alternative: 5)
-        //EGL_TRANSPARENT_TYPE, EGL_NONE, // Request transparent framebuffer (EGL_TRANSPARENT_RGB does not work on RPI)
-        EGL_DEPTH_SIZE, 16,         // Depth buffer size (Required to use Depth testing!)
-        //EGL_STENCIL_SIZE, 8,      // Stencil buffer size
-        EGL_SAMPLE_BUFFERS, sampleBuffer,    // Activate MSAA
-        EGL_SAMPLES, samples,       // 4x Antialiasing if activated (Free on MALI GPUs)
-        EGL_NONE
-    };
-
-    const EGLint contextAttribs[] =
-    {
-        EGL_CONTEXT_CLIENT_VERSION, 2,
-        EGL_NONE
-    };
-
-    EGLint numConfigs = 0;
-
-    // Get an EGL device connection
-    platform.device = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-    if (platform.device == EGL_NO_DISPLAY)
-    {
-        TRACELOG(LOG_WARNING, "DISPLAY: Failed to initialize EGL device");
-        return false;
-    }
-
-    // Initialize the EGL device connection
-    if (eglInitialize(platform.device, NULL, NULL) == EGL_FALSE)
-    {
-        // If all of the calls to eglInitialize returned EGL_FALSE then an error has occurred.
-        TRACELOG(LOG_WARNING, "DISPLAY: Failed to initialize EGL device");
-        return false;
-    }
-
-    // Get an appropriate EGL framebuffer configuration
-    eglChooseConfig(platform.device, framebufferAttribs, &platform.config, 1, &numConfigs);
-
-    // Set rendering API
-    eglBindAPI(EGL_OPENGL_ES_API);
-
-    // Create an EGL rendering context
-    platform.context = eglCreateContext(platform.device, platform.config, EGL_NO_CONTEXT, contextAttribs);
-    if (platform.context == EGL_NO_CONTEXT)
-    {
-        TRACELOG(LOG_WARNING, "DISPLAY: Failed to create EGL context");
-        return -1;
-    }
-
-    // Create an EGL window surface
-    EGLint displayFormat = 0;
-
-    // EGL_NATIVE_VISUAL_ID is an attribute of the EGLConfig that is guaranteed to be accepted by ANativeWindow_setBuffersGeometry()
-    // As soon as we picked a EGLConfig, we can safely reconfigure the ANativeWindow buffers to match, using EGL_NATIVE_VISUAL_ID
-    eglGetConfigAttrib(platform.device, platform.config, EGL_NATIVE_VISUAL_ID, &displayFormat);
-
-    // Android specific call
-    ANativeWindow_setBuffersGeometry(platform.app->window, 0, 0, displayFormat);       // Force use of native display size
-
-    platform.surface = eglCreateWindowSurface(platform.device, platform.config, platform.app->window, NULL);
-
-    // There must be at least one frame displayed before the buffers are swapped
-    eglSwapInterval(platform.device, 1);
-
-    EGLBoolean result = eglMakeCurrent(platform.device, platform.surface, platform.surface, platform.context);
 
     // Check surface and context activation
-    if (result != EGL_FALSE)
+    if (0)
     {
         CORE.Window.ready = true;
 
@@ -553,11 +475,6 @@ int InitPlatform(void)
     TRACELOG(LOG_INFO, "    > Render size:  %i x %i", CORE.Window.render.width, CORE.Window.render.height);
     TRACELOG(LOG_INFO, "    > Viewport offsets: %i, %i", CORE.Window.renderOffset.x, CORE.Window.renderOffset.y);
 
-    // TODO: Load OpenGL extensions
-    // NOTE: GL procedures address loader is required to load extensions
-    //----------------------------------------------------------------------------
-    rlLoadExtensions(eglGetProcAddress);
-    //----------------------------------------------------------------------------
 
     // TODO: Initialize input events system
     // It could imply keyboard, mouse, gamepad, touch...
