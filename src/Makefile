@@ -352,6 +352,9 @@ endif
 #  -Wmissing-prototypes     warn if a global function is defined without a previous prototype declaration
 #  -Wstrict-prototypes      warn if a function is declared or defined without specifying the argument types
 #  -Werror=implicit-function-declaration   catch function calls without prior declaration
+ifeq ($(PLATFORM),PLATFORM_WII)
+    CFLAGS += $(MACHDEP)
+endif
 ifeq ($(PLATFORM),PLATFORM_DESKTOP)
     CFLAGS += -Werror=implicit-function-declaration
 endif
@@ -497,6 +500,9 @@ endif
 #------------------------------------------------------------------------------------------------
 LDFLAGS = $(CUSTOM_LDFLAGS) -L. -L$(RAYLIB_RELEASE_PATH)
 
+ifeq ($(PLATFORM),PLATFORM_WII)
+    LDFLAGS += -g $(MACHDEP) -Wl,-Map,$(notdir $@).map
+endif
 ifeq ($(PLATFORM),PLATFORM_DESKTOP)
     ifeq ($(PLATFORM_OS),WINDOWS)
         ifneq ($(CC), tcc)

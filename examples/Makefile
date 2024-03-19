@@ -57,8 +57,8 @@ RAYLIB_SRC_PATH       ?= ../src
 
 # Locations of raylib.h and libraylib.a/libraylib.so
 # NOTE: Those variables are only used for PLATFORM_OS: LINUX, BSD
-RAYLIB_INCLUDE_PATH   ?= /usr/local/include
-RAYLIB_LIB_PATH       ?= /usr/local/lib
+RAYLIB_INCLUDE_PATH   ?= ../src
+RAYLIB_LIB_PATH       ?= ../src
 
 # Library type compilation: STATIC (.a) or SHARED (.so/.dll)
 RAYLIB_LIBTYPE        ?= STATIC
@@ -153,6 +153,19 @@ endif
 #------------------------------------------------------------------------------------------------
 CC = gcc
 
+ifeq ($(PLATFORM),PLATFORM_WII)
+    ifeq ($(strip $(DEVKITPPC)),)
+        $(error "Please set DEVKITPPC in your environment. export DEVKITPPC=<path to>devkitPPC")
+    endif
+
+    include $(DEVKITPPC)/wii_rules
+
+    ifeq ($(strip $(CPPFILES)),)
+        export LD   :=  $(CC)
+    else
+        export LD   :=  $(CXX)
+    endif
+endif
 ifeq ($(PLATFORM),PLATFORM_DESKTOP)
     ifeq ($(PLATFORM_OS),OSX)
         # OSX default compiler
@@ -199,6 +212,9 @@ endif
 #  -D_DEFAULT_SOURCE    use with -std=c99 on Linux and PLATFORM_WEB, required for timespec
 CFLAGS = -Wall -std=c99 -D_DEFAULT_SOURCE -Wno-missing-braces -Wunused-result
 
+ifeq ($(PLATFORM),PLATFORM_WII)
+    CFLAGS += $(MACHDEP)
+endif
 ifeq ($(BUILD_MODE),DEBUG)
     CFLAGS += -g -D_DEBUG
     ifeq ($(PLATFORM),PLATFORM_WEB)
@@ -268,6 +284,9 @@ endif
 #------------------------------------------------------------------------------------------------
 LDFLAGS = -L. -L$(RAYLIB_RELEASE_PATH) -L$(RAYLIB_PATH)/src
 
+ifeq ($(PLATFORM),PLATFORM_WII)
+    LDFLAGS += -g $(MACHDEP) -Wl,-Map,$@.map
+endif
 ifeq ($(PLATFORM),PLATFORM_DESKTOP)
     ifeq ($(PLATFORM_OS),WINDOWS)
         # NOTE: The resource .rc file contains windows executable icon and properties
@@ -342,6 +361,9 @@ endif
 # Define libraries required on linking: LDLIBS
 # NOTE: To link libraries (lib<name>.so or lib<name>.a), use -l<name>
 #------------------------------------------------------------------------------------------------
+ifeq ($(PLATFORM),PLATFORM_DESKTOP)
+    LDLIBS = -lwiiuse -lbte -logc -lm
+endif
 ifeq ($(PLATFORM),PLATFORM_DESKTOP)
     ifeq ($(PLATFORM_OS),WINDOWS)
         # Libraries for Windows desktop compilation
@@ -605,6 +627,9 @@ shaders: $(SHADERS)
 audio: $(AUDIO)
 others: $(OTHERS)
 
+-include *.d
+LIBS=-lraylib -lwiiuse -lopengx -lbte -logc -lm
+LIBPATHS=-L$(LIBOGC_LIB) -L../../opengx/src
 # Generic compilation pattern
 # NOTE: Examples must be ready for Android compilation!
 %: %.c
@@ -612,8 +637,11 @@ ifeq ($(PLATFORM),PLATFORM_ANDROID)
 	$(MAKE) -f Makefile.Android PROJECT_NAME=$@ PROJECT_SOURCE_FILES=$<
 else ifeq ($(PLATFORM),PLATFORM_WEB)
 	$(MAKE) -f Makefile.Web $@
+else ifeq ($(PLATFORM),PLATFORM_WII)
+	$(CC) -MMD -MP -MF $*.d $(CFLAGS) $(INCLUDE_PATHS) -c $< -o $@.o $(ERROR_FILTER)
+	$(CC) $@.o $(LDFLAGS) $(LIBPATHS) $(LIBS) -o $@
 else
-	$(CC) -o $@$(EXT) $< $(CFLAGS) $(INCLUDE_PATHS) $(LDFLAGS) $(LDLIBS) -D$(PLATFORM)
+	$(CC) -o $@$(EXT) $< $(CFLAGS) $(INCLUDE_PATHS) $(LDFLAGS) $(LIBS) $(LDLIBS) -D$(PLATFORM)
 endif
 
 # Clean everything
