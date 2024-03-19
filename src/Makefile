@@ -217,6 +217,9 @@ endif
 
 GRAPHICS ?= GRAPHICS_API_OPENGL_33
 # Define raylib graphics api depending on selected platform
+ifeq ($(PLATFORM),PLATFORM_WII)
+    GRAPHICS = GRAPHICS_API_OPENGL_11
+endif
 ifeq ($(PLATFORM),PLATFORM_DESKTOP)
     # By default use OpenGL 3.3 on desktop platforms
     GRAPHICS ?= GRAPHICS_API_OPENGL_33
@@ -446,6 +449,9 @@ endif
 INCLUDE_PATHS = -I. 
 
 # Define additional directories containing required header files
+ifeq ($(PLATFORM),PLATFORM_WII)
+    INCLUDE_PATHS += -I../../opengx/include
+endif
 ifeq ($(PLATFORM),PLATFORM_DESKTOP)
     INCLUDE_PATHS += -Iexternal/glfw/include
     ifeq ($(PLATFORM_OS),BSD)
