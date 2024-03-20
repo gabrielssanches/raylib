@@ -453,7 +453,7 @@ INCLUDE_PATHS = -I.
 
 # Define additional directories containing required header files
 ifeq ($(PLATFORM),PLATFORM_WII)
-    INCLUDE_PATHS += -I../../opengx/include
+    INCLUDE_PATHS += -I../../opengx/include -I$(LIBOGC_INC)
 endif
 ifeq ($(PLATFORM),PLATFORM_DESKTOP)
     INCLUDE_PATHS += -Iexternal/glfw/include

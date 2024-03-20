@@ -47,12 +47,21 @@
 **********************************************************************************************/
 
 // TODO: Include the platform specific libraries
+#include <stdlib.h>
+#include <string.h>
+#include <malloc.h>
+#include <math.h>
+#include <gccore.h>
+#include <wiiuse/wpad.h>
 
 //----------------------------------------------------------------------------------
 // Types and Structures Definition
 //----------------------------------------------------------------------------------
 typedef struct {
-    int a;
+    int version;
+    void *frameBuffer[2];
+    u32 fb;
+    GXRModeObj *rmode;
 } PlatformData;
 
 //----------------------------------------------------------------------------------
@@ -425,6 +434,26 @@ void PollInputEvents(void)
 // Initialize platform: graphics, inputs and more
 int InitPlatform(void)
 {
+	GXColor background = {0, 0, 0, 0xff};
+
+	VIDEO_Init();
+
+	platform.rmode = VIDEO_GetPreferredMode(NULL);
+    platform.fb = 0;
+	platform.frameBuffer[0] = MEM_K0_TO_K1(SYS_AllocateFramebuffer(platform.rmode));
+	platform.frameBuffer[1] = MEM_K0_TO_K1(SYS_AllocateFramebuffer(platform.rmode));
+
+	VIDEO_Configure(platform.rmode);
+	VIDEO_SetNextFramebuffer(frameBuffer[platform.fb]);
+	VIDEO_SetBlack(false);
+	VIDEO_Flush();
+	VIDEO_WaitVSync();
+	if (platform.rmode->viTVMode & VI_NON_INTERLACE) {
+        VIDEO_WaitVSync();
+    }
+
+	platform.fb ^= 1;
+
     // TODO: Initialize graphic device: display/window
     // It usually requires setting up the platform display system configuration
     // and connexion with the GPU through some system graphic API
