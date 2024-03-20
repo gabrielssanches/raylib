@@ -640,6 +640,8 @@ else ifeq ($(PLATFORM),PLATFORM_WEB)
 else ifeq ($(PLATFORM),PLATFORM_WII)
 	$(CC) -MMD -MP -MF $*.d $(CFLAGS) $(INCLUDE_PATHS) -c $< -o $@.o $(ERROR_FILTER)
 	$(CC) $@.o $(LDFLAGS) $(LIBPATHS) $(LIBS) -o $@
+	cp $@ $@.elf
+	elf2dol $@.elf $@.dol
 else
 	$(CC) -o $@$(EXT) $< $(CFLAGS) $(INCLUDE_PATHS) $(LDFLAGS) $(LIBS) $(LDLIBS) -D$(PLATFORM)
 endif

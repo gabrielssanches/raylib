@@ -1,28 +1,27 @@
 /**********************************************************************************************
 *
-*   rcore_<platform> template - Functions to manage window, graphics device and inputs
+*   rcore_wii - Functions to manage window, graphics device and inputs
 *
-*   PLATFORM: <PLATFORM>
-*       - TODO: Define the target platform for the core
+*   PLATFORM: PLATFORM_WII
 *
 *   LIMITATIONS:
-*       - Limitation 01
-*       - Limitation 02
+*       - TODO
 *
 *   POSSIBLE IMPROVEMENTS:
-*       - Improvement 01
-*       - Improvement 02
+*       - TODO
 *
 *   ADDITIONAL NOTES:
 *       - TRACELOG() function is located in raylib [utils] module
 *
 *   CONFIGURATION:
+*       - TODO
 *       #define RCORE_PLATFORM_CUSTOM_FLAG
 *           Custom flag for rcore on target platform -not used-
 *
 *   DEPENDENCIES:
-*       - <platform-specific SDK dependency>
-*       - gestures: Gestures system for touch-ready devices (or simulated from mouse inputs)
+*       - TODO
+*       - opengx
+*       - devkitppc
 *
 *
 *   LICENSE: zlib/libpng
@@ -46,13 +45,14 @@
 *
 **********************************************************************************************/
 
-// TODO: Include the platform specific libraries
 #include <stdlib.h>
 #include <string.h>
 #include <malloc.h>
 #include <math.h>
 #include <gccore.h>
 #include <wiiuse/wpad.h>
+
+#define WII_DEFAULT_FIFO_SIZE           (256*1024)
 
 //----------------------------------------------------------------------------------
 // Types and Structures Definition
@@ -62,6 +62,7 @@ typedef struct {
     void *frameBuffer[2];
     u32 fb;
     GXRModeObj *rmode;
+    void *fifo;
 } PlatformData;
 
 //----------------------------------------------------------------------------------
@@ -74,13 +75,7 @@ static PlatformData platform = { 0 };   // Platform specific data
 //----------------------------------------------------------------------------------
 // Module Internal Functions Declaration
 //----------------------------------------------------------------------------------
-int InitPlatform(void);          // Initialize platform (graphics, inputs and more)
-bool InitGraphicsDevice(void);   // Initialize graphics device
-
-//----------------------------------------------------------------------------------
-// Module Functions Declaration
-//----------------------------------------------------------------------------------
-// NOTE: Functions declaration is provided by raylib.h
+int InitPlatform(void);                 // Initialize platform (graphics, inputs and more)
 
 //----------------------------------------------------------------------------------
 // Module Functions Definition: Window and Graphics Device
@@ -328,7 +323,26 @@ void DisableCursor(void)
 // Swap back buffer with front buffer (screen drawing)
 void SwapScreenBuffer(void)
 {
-    // TODO
+	GX_DrawDone();
+
+	platform.fb ^= 1;
+
+    GX_SetZMode(GX_TRUE, GX_LEQUAL, GX_TRUE);
+    GX_SetColorUpdate(GX_TRUE);
+    GX_CopyDisp(platform.frameBuffer[platform.fb],GX_TRUE);
+	VIDEO_SetNextFramebuffer(platform.frameBuffer[platform.fb]);
+	VIDEO_Flush();
+	VIDEO_WaitVSync();
+
+#if 0
+    // TODO needed?
+	if (platform.rmode->viTVMode & VI_NON_INTERLACE)
+    {
+        VIDEO_WaitVSync();
+    }
+#endif
+
+	GX_SetViewport(0, 0, platform.rmode->fbWidth, platform.rmode->efbHeight, 0, 1);
 }
 
 //----------------------------------------------------------------------------------
@@ -424,6 +438,7 @@ void PollInputEvents(void)
     }
 
     // TODO: Poll input events for current platform
+	WPAD_ScanPads();
 }
 
 
@@ -434,8 +449,6 @@ void PollInputEvents(void)
 // Initialize platform: graphics, inputs and more
 int InitPlatform(void)
 {
-	GXColor background = {0, 0, 0, 0xff};
-
 	VIDEO_Init();
 
 	platform.rmode = VIDEO_GetPreferredMode(NULL);
@@ -444,48 +457,75 @@ int InitPlatform(void)
 	platform.frameBuffer[1] = MEM_K0_TO_K1(SYS_AllocateFramebuffer(platform.rmode));
 
 	VIDEO_Configure(platform.rmode);
-	VIDEO_SetNextFramebuffer(frameBuffer[platform.fb]);
+	VIDEO_SetNextFramebuffer(platform.frameBuffer[platform.fb]);
 	VIDEO_SetBlack(false);
 	VIDEO_Flush();
 	VIDEO_WaitVSync();
-	if (platform.rmode->viTVMode & VI_NON_INTERLACE) {
+	if (platform.rmode->viTVMode & VI_NON_INTERLACE)
+    {
         VIDEO_WaitVSync();
     }
 
 	platform.fb ^= 1;
 
-    // TODO: Initialize graphic device: display/window
-    // It usually requires setting up the platform display system configuration
-    // and connexion with the GPU through some system graphic API
-    // raylib uses OpenGL so, platform should create that kind of connection
-    // Below example illustrates that process using EGL library
-    //----------------------------------------------------------------------------
-    CORE.Window.fullscreen = true;
-    CORE.Window.flags |= FLAG_FULLSCREEN_MODE;
+	// setup the fifo and then init the flipper
+	platform.fifo = memalign(32, WII_DEFAULT_FIFO_SIZE);
+	memset(platform.fifo, 0, WII_DEFAULT_FIFO_SIZE);
 
+	GX_Init(platform.fifo, WII_DEFAULT_FIFO_SIZE);
+
+	// clears the bg to color and clears the z buffer
+	GXColor background = {0, 0, 0, 0xff};
+	GX_SetCopyClear(background, 0x00ffffff);
+
+	// other gx setup
+	GX_SetViewport(0, 0, platform.rmode->fbWidth, platform.rmode->efbHeight, 0, 1);
+	f32 yscale = GX_GetYScaleFactor(platform.rmode->efbHeight, platform.rmode->xfbHeight);
+	u32 xfbHeight = GX_SetDispCopyYScale(yscale);
+	GX_SetScissor(0, 0, platform.rmode->fbWidth, platform.rmode->efbHeight);
+	GX_SetDispCopySrc(0, 0, platform.rmode->fbWidth, platform.rmode->efbHeight);
+	GX_SetDispCopyDst(platform.rmode->fbWidth, xfbHeight);
+	GX_SetCopyFilter(platform.rmode->aa, platform.rmode->sample_pattern, GX_TRUE, platform.rmode->vfilter);
+    u8 half_aspect_ratio = GX_DISABLE;
+    if (platform.rmode->viHeight == (2*platform.rmode->xfbHeight))
+    {
+        half_aspect_ratio = GX_ENABLE;
+    }
+	GX_SetFieldMode(platform.rmode->field_rendering, half_aspect_ratio);
+
+	GX_SetCullMode(GX_CULL_NONE);
+	GX_CopyDisp(platform.frameBuffer[platform.fb], GX_TRUE);
+	GX_SetDispCopyGamma(GX_GM_1_0);
+
+#if 0 // TODO needed?
+	// setup our camera at the origin
+	// looking down the -z axis with y up
+    Mtx view;
+	guVector cam = {0.0F, 0.0F, 0.0F};
+	guVector up = {0.0F, 1.0F, 0.0F};
+	guVector look = {0.0F, 0.0F, -1.0F};
+	guLookAt(view, &cam, &up, &look);
+
+	// setup our projection matrix
+	// this creates a perspective matrix with a view angle of 90,
+	// and aspect ratio based on the display resolution
+	f32 w = platform.rmode->viWidth;
+	f32 h = platform.rmode->viHeight;
+	Mtx44 perspective;
+	guPerspective(perspective, 45, (f32)w/h, 0.1F, 300.0F);
+	GX_LoadProjectionMtx(perspective, GX_PERSPECTIVE);
+#endif
+
+
+#if 0 // TODO is AA possible? 
     if (CORE.Window.flags & FLAG_MSAA_4X_HINT)
     {
         TRACELOG(LOG_INFO, "DISPLAY: Trying to enable MSAA x4");
     }
-
+#endif
 
     // Check surface and context activation
     if (0)
-    {
-        CORE.Window.ready = true;
-
-        CORE.Window.render.width = CORE.Window.screen.width;
-        CORE.Window.render.height = CORE.Window.screen.height;
-        CORE.Window.currentFbo.width = CORE.Window.render.width;
-        CORE.Window.currentFbo.height = CORE.Window.render.height;
-
-        TRACELOG(LOG_INFO, "DISPLAY: Device initialized successfully");
-        TRACELOG(LOG_INFO, "    > Display size: %i x %i", CORE.Window.display.width, CORE.Window.display.height);
-        TRACELOG(LOG_INFO, "    > Screen size:  %i x %i", CORE.Window.screen.width, CORE.Window.screen.height);
-        TRACELOG(LOG_INFO, "    > Render size:  %i x %i", CORE.Window.render.width, CORE.Window.render.height);
-        TRACELOG(LOG_INFO, "    > Viewport offsets: %i, %i", CORE.Window.renderOffset.x, CORE.Window.renderOffset.y);
-    }
-    else
     {
         TRACELOG(LOG_FATAL, "PLATFORM: Failed to initialize graphics device");
         return -1;
@@ -493,6 +533,11 @@ int InitPlatform(void)
     //----------------------------------------------------------------------------
 
     // If everything work as expected, we can continue
+    //
+
+    CORE.Window.fullscreen = true;
+    CORE.Window.flags |= FLAG_FULLSCREEN_MODE;
+
     CORE.Window.render.width = CORE.Window.screen.width;
     CORE.Window.render.height = CORE.Window.screen.height;
     CORE.Window.currentFbo.width = CORE.Window.render.width;
@@ -504,8 +549,11 @@ int InitPlatform(void)
     TRACELOG(LOG_INFO, "    > Render size:  %i x %i", CORE.Window.render.width, CORE.Window.render.height);
     TRACELOG(LOG_INFO, "    > Viewport offsets: %i, %i", CORE.Window.renderOffset.x, CORE.Window.renderOffset.y);
 
+    CORE.Window.ready = true;
 
     // TODO: Initialize input events system
+	WPAD_Init();
+
     // It could imply keyboard, mouse, gamepad, touch...
     // Depending on the platform libraries/SDK it could use a callback mechanism
     // For system events and inputs evens polling on a per-frame basis, use PollInputEvents()
@@ -523,7 +571,7 @@ int InitPlatform(void)
     CORE.Storage.basePath = GetWorkingDirectory();
     //----------------------------------------------------------------------------
 
-    TRACELOG(LOG_INFO, "PLATFORM: CUSTOM: Initialized successfully");
+    TRACELOG(LOG_INFO, "PLATFORM: WII: Initialized successfully");
 
     return 0;
 }

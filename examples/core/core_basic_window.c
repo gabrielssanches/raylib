@@ -30,8 +30,8 @@ int main(void)
 {
     // Initialization
     //--------------------------------------------------------------------------------------
-    const int screenWidth = 800;
-    const int screenHeight = 450;
+    const int screenWidth = 640;
+    const int screenHeight = 480;
 
     InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
 
@@ -50,9 +50,11 @@ int main(void)
         //----------------------------------------------------------------------------------
         BeginDrawing();
 
-            ClearBackground(RAYWHITE);
+            ClearBackground(RED);
 
-            DrawText("Congrats! You created your first window!", 190, 200, 20, LIGHTGRAY);
+            DrawCircle(screenWidth/5, 120, 35, DARKBLUE);
+
+            DrawText("Congrats! You created your first window!", 190, 200, 20, BLACK);
 
         EndDrawing();
         //----------------------------------------------------------------------------------
